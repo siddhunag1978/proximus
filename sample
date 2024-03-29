@@ -1,1 +1,52 @@
 
+package com.abnamro.coao.clientadministrationapp;
+
+import com.abnamro.coao.clientadministrationapp.service.BCDBCustomerUpdateService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.microsoft.azure.functions.*;
+import com.microsoft.azure.functions.annotation.AuthorizationLevel;
+import com.microsoft.azure.functions.annotation.FunctionName;
+import com.microsoft.azure.functions.annotation.HttpTrigger;
+import org.springframework.stereotype.Component;
+
+import java.util.Optional;
+
+@Component
+public class COAOAdminProcessor {
+
+    private BCDBCustomerUpdateService bcdbCustomerUpdateService;
+
+    public COAOAdminProcessor(BCDBCustomerUpdateService bcdbCustomerUpdateService) {
+        this.bcdbCustomerUpdateService = bcdbCustomerUpdateService;
+    }
+
+    /**
+     * This function listens at endpoint "/api/COAOAdminProcessor". Two ways to invoke it using "curl" command in bash:
+     * 1. curl -d "HTTP Body" {your host}/api/COAOAdminProcessor
+     * 2. curl {your host}/api/COAOAdminProcessor?customerId=HTTP%20Query
+     */
+    @FunctionName("COAOAdminProcessor")
+    public HttpResponseMessage run(
+            @HttpTrigger(name = "req", methods = {HttpMethod.GET, HttpMethod.POST}, authLevel = AuthorizationLevel.ANONYMOUS) HttpRequestMessage<Optional<String>> request,
+            final ExecutionContext context) {
+        try {
+
+            context.getLogger().info("Java HTTP trigger processed a request.");
+
+            // Parse query parameter
+            String query = request.getQueryParameters().get("customerId");
+            String customerId = request.getBody().orElse(query);
+
+            if (customerId == null) {
+                return request.createResponseBuilder(HttpStatus.BAD_REQUEST).body("Please pass a customerId on the query string or in the request body").build();
+            } else {
+                context.getLogger().info("before executing ");
+                return request.createResponseBuilder(HttpStatus.OK).body(bcdbCustomerUpdateService.apply(customerId)).header("Content-Type", "application/json").build();
+
+            }
+
+        } catch (JsonProcessingException e) {
+            return request.createResponseBuilder(HttpStatus.BAD_REQUEST).body("Please pass a customerId on the query string or in the request body").build();
+        }
+    }
+}
