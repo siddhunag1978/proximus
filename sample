@@ -1,37 +1,29 @@
+
+
 package com.abnamro.coao.clientadministrationapp;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.openfeign.EnableFeignClients;
-import org.springframework.context.annotation.Import;
 
 @SpringBootApplication
 @EnableFeignClients
 public class COAOAdminApplication {
-    public static void main(String[] args){
+    public static void main(String[] args) {
         SpringApplication.run(COAOAdminApplication.class, args);
     }
 }
 
 
-
 -----------------------------------------------------------------------------------------------
-
 
 package com.abnamro.coao.clientadministrationapp.service;
 
-
 import com.abnamro.coao.clientadministrationapp.client.zos.BCDetailsZosFeignClient;
-import com.abnamro.coao.clientadministrationapp.client.zos.interfaces.bcdb.custinfo.request.MG271AReadBCRequest;
-import com.abnamro.coao.clientadministrationapp.client.zos.interfaces.bcdb.custinfo.request.MG271AView001Input;
-import com.abnamro.coao.clientadministrationapp.client.zos.interfaces.bcdb.custinfo.request.MG271InputMessage;
-import com.abnamro.coao.clientadministrationapp.client.zos.interfaces.bcdb.custinfo.request.ServiceReadInputHeader;
+import com.abnamro.coao.clientadministrationapp.client.zos.interfaces.bcdb.custinfo.request.*;
 import com.abnamro.coao.clientadministrationapp.client.zos.interfaces.bcdb.custinfo.response.MG271AFetchCustResponse;
 import com.abnamro.coao.clientadministrationapp.client.zos.interfaces.bcdb.dto.request.*;
-import com.abnamro.coao.clientadministrationapp.client.zos.interfaces.bcdb.updatecustomer.request.MG786AView001Input;
-import com.abnamro.coao.clientadministrationapp.client.zos.interfaces.bcdb.updatecustomer.request.MG786InputMessage;
-import com.abnamro.coao.clientadministrationapp.client.zos.interfaces.bcdb.updatecustomer.request.MG786T01AUpdateRequest;
-import com.abnamro.coao.clientadministrationapp.client.zos.interfaces.bcdb.updatecustomer.response.MG786T01AUpdateResponse;
+import com.abnamro.coao.clientadministrationapp.client.zos.interfaces.bcdb.updatecustomer.request.*;
 import com.abnamro.coao.clientadministrationapp.exception.BCDBCustomerUpdateServiceException;
 import com.abnamro.coao.clientadministrationapp.util.JSONUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -39,99 +31,128 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import static com.abnamro.coao.clientadministrationapp.util.JSONUtils.covertObjectToJson;
-
 /**
- * BCDBClientUpdateService: It communicates with BCDB system over ZOS API to update customer status
- * details.
+ * BCDBCustomerUpdateService: Communicates with BCDB system over ZOS API to update customer status details.
  */
 @Component
 public class BCDBCustomerUpdateService {
 
-    private BCDetailsZosFeignClient bcDetailsZosFeignClient;
+    private final BCDetailsZosFeignClient bcDetailsZosFeignClient;
 
-        @Autowired
-        public BCDBCustomerUpdateService(BCDetailsZosFeignClient bcDetailsZosFeignClient) {
+    @Autowired
+    public BCDBCustomerUpdateService(BCDetailsZosFeignClient bcDetailsZosFeignClient) {
         this.bcDetailsZosFeignClient = bcDetailsZosFeignClient;
     }
 
     /**
-     * Update Customer status  from Zos/MG786.
+     * Update Customer status from Zos/MG786.
      *
-     * @param
-     * @return MG786T01AUpdateResponse
-     * @throws BCDBCustomerUpdateServiceException Throw exception when zOS returns null data and
-     *                                            thus the customer does not exist
+     * @param customerId Customer ID
+     * @return "SUCCESS" if the update is successful
+     * @throws BCDBCustomerUpdateServiceException If zOS returns null data, indicating that the customer does not exist
      */
-    private String updateMinorToNatural(String customerId) throws JsonProcessingException {
-
+    public String updateMinorToNatural(String customerId) throws JsonProcessingException {
         Long transactionNumber = getBCDBTransactionX(customerId);
-        System.out.printf("getBCDBTransactionX " + transactionNumber);
-
         MG786T01AUpdateResponse mg786T01AUpdateResponse = bcDetailsZosFeignClient.updateMinorToNatural(constructBCDBUpdateRequest(transactionNumber, customerId));
-        System.out.println(" MG786T01AUpdateResponse================="+JSONUtils.covertObjectToJson(mg786T01AUpdateResponse));
 
         if (mg786T01AUpdateResponse != null) {
-            if (!StringUtils.isBlank(mg786T01AUpdateResponse.getMg_output_message().getService_resultaat().getMg_resultaatcode())
-                    && StringUtils.equalsIgnoreCase(mg786T01AUpdateResponse.getMg_output_message().getService_resultaat().getMg_resultaatcode(), "0")) {
-
-                if (StringUtils.equalsIgnoreCase(mg786T01AUpdateResponse.getMg_output_message().getMg786a_view_001_output().getMg786a_001_output_data().getProcessed_flag(), "Y")) {
-
-                } else {
-                    throw new BCDBCustomerUpdateServiceException("Unable to update the customer details");
-                }
+            if (StringUtils.equals("0", mg786T01AUpdateResponse.getMg_output_message().getService_resultaat().getMg_resultaatcode())
+                    && StringUtils.equals("Y", mg786T01AUpdateResponse.getMg_output_message().getMg786a_view_001_output().getMg786a_001_output_data().getProcessed_flag())) {
+                // Successful update
+            } else {
+                throw new BCDBCustomerUpdateServiceException("Unable to update the customer details");
             }
         }
         return "SUCCESS";
     }
 
-
     private String constructBCDBUpdateRequest(Long bcTransactionX, String customerId) throws JsonProcessingException {
-
-        return covertObjectToJson(MG786T01AUpdateRequest.builder().mg_input_message(MG786InputMessage.builder()
-                .SERVICE_INPUT(ServiceInput.builder().service_input_group(ServiceInputGROUP.builder().bs_userid("C84190").bs_application_id("BCDCBUCO").build())
-                        .build()).mg786a_view_001_input(MG786AView001Input.builder().service_update_input_header(ServiceUpdateInputHeader.builder()
-                        .bc_number_x(new BCNumberX(customerId))
-                        .mg_entry_id("MG786B")
-                                .mg_entry_id("")
-                                .business_event_number_x("")
-                                .system_date_time("")
-                                .mg_start_date("")
-                        .bc_transaction_x(BCTransactionX.builder()
-                                .bc_transaction(bcTransactionX).build()).build()).build()).build()).build());
+        return JSONUtils.convertObjectToJson(
+            MG786T01AUpdateRequest.builder()
+                .mg_input_message(
+                    MG786InputMessage.builder()
+                        .SERVICE_INPUT(
+                            ServiceInput.builder()
+                                .service_input_group(
+                                    ServiceInputGROUP.builder()
+                                        .bs_userid("C84190")
+                                        .bs_application_id("BCDCBUCO")
+                                        .build()
+                                )
+                                .build()
+                        )
+                        .mg786a_view_001_input(
+                            MG786AView001Input.builder()
+                                .service_update_input_header(
+                                    ServiceUpdateInputHeader.builder()
+                                        .bc_number_x(new BCNumberX(customerId))
+                                        .mg_entry_id("")
+                                        .business_event_number_x("")
+                                        .system_date_time("")
+                                        .mg_start_date("")
+                                        .bc_transaction_x(
+                                            BCTransactionX.builder()
+                                                .bc_transaction(bcTransactionX)
+                                                .build()
+                                        )
+                                        .build()
+                                )
+                                .build()
+                        )
+                        .build()
+                )
+                .build()
+        );
     }
 
     private String populateReadBCRequest(String customerId) throws JsonProcessingException {
-
-        return JSONUtils.covertObjectToJson(MG271AReadBCRequest.builder().mg271InputMessage(MG271InputMessage.builder()
-                .SERVICE_INPUT(ServiceInput.builder().service_input_group(ServiceInputGROUP.builder().bs_userid("C84190").bs_application_id("BCDCBUCO").bs_language_code("nl").bs_language_country_code("").build()).build())
-                .mg271AView001Input(MG271AView001Input.builder().service_read_input_header(ServiceReadInputHeader.builder().draft_final_ind("1").mg_start_date("").system_date_time("").bc_number_x(BCNumberX.builder().bc_number(customerId).build()).build()).build()).build()).build());
+        return JSONUtils.convertObjectToJson(
+            MG271AReadBCRequest.builder()
+                .mg271InputMessage(
+                    MG271InputMessage.builder()
+                        .SERVICE_INPUT(
+                            ServiceInput.builder()
+                                .service_input_group(
+                                    ServiceInputGROUP.builder()
+                                        .bs_userid("C84190")
+                                        .bs_application_id("BCDCBUCO")
+                                        .bs_language_code("nl")
+                                        .bs_language_country_code("")
+                                        .build()
+                                )
+                                .build()
+                        )
+                        .mg271AView001Input(
+                            MG271AView001Input.builder()
+                                .service_read_input_header(
+                                    ServiceReadInputHeader.builder()
+                                        .draft_final_ind("1")
+                                        .mg_start_date("")
+                                        .system_date_time("")
+                                        .bc_number_x(new BCNumberX(customerId))
+                                        .build()
+                                )
+                                .build()
+                        )
+                        .build()
+                )
+                .build()
+        );
     }
-
 
     private Long getBCDBTransactionX(String customerId) throws JsonProcessingException {
         MG271AFetchCustResponse mg271AFetchCustResponse = bcDetailsZosFeignClient.getCustomer(populateReadBCRequest(customerId));
 
-        System.out.println("MG271AFetchCustResponse :::======"+JSONUtils.covertObjectToJson(mg271AFetchCustResponse));
-
         if (mg271AFetchCustResponse != null) {
-            if (!StringUtils.isBlank(mg271AFetchCustResponse.getMgOutputMessage().getService_resultaat().getMg_resultaatcode())
-                    && StringUtils.equalsIgnoreCase(mg271AFetchCustResponse.getMgOutputMessage().getService_resultaat().getMg_resultaatcode(), "0")) {
-               /* Long transactionID = mg271AFetchCustResponse.getMgOutputMessage().getMg271AView004Output().getServiceReadOutputHeader().getBc_transaction_x().getBc_transaction();
-                if (transactionID > 0)
-                    return transactionID;
-                else*/
-                    //throw new BCDBCustomerUpdateServiceException("transactionID is wrong");
+            if (StringUtils.equals("0", mg271AFetchCustResponse.getMgOutputMessage().getService_resultaat().getMg_resultaatcode())) {
+                // Some processing here to get transaction number
                 return 14L;
-
             } else {
-                return 14L;
-               // throw new BCDBCustomerUpdateServiceException("transactionID is missing");
+                throw new BCDBCustomerUpdateServiceException("Unable to fetch the transaction ID");
             }
         }
         return 0L;
     }
-
 
     public String apply(String customerId) throws JsonProcessingException {
         return updateMinorToNatural(customerId);
