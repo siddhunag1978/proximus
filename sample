@@ -14,79 +14,52 @@ import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
-
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 
 /**
- * This Configuration class separate from main application class to enable feign clients. <br>
- * It is advice to keep EnableFeignClient separate from main application class due to that a separate configuration
- * class is created.
+ * This Configuration class is separate from the main application class to enable Feign clients.
+ * It is advisable to keep `EnableFeignConfiguration` separate from the main application class
+ * because a separate configuration class is created.
  */
 @Configuration
 public class EnableFeignConfiguration {
 
-  private static final String ABNAMRO_STANDARD_TRACE_ID = "Trace-Id";
-  private static final String MDC_TRACE_ID = "TRACE-ID";
+    private static final String ABNAMRO_STANDARD_TRACE_ID = "Trace-Id";
+    private static final String MDC_TRACE_ID = "TRACE-ID";
 
-  @Autowired
-  private COASSLContextProducer coasslContextProducer;
+    @Autowired
+    private COASSLContextProducer coasslContextProducer;
 
-
-  /**
-   * requestInterceptorForTraceId bean intercept the request and add Trace-Id header to it, before it makes call to
-   * downstream systems
-   * 
-   * @return RequestInterceptor bean
-   */
-  @Bean
-  public RequestInterceptor requestInterceptorForTraceId() {
-    return (requestTemplate) -> {
-      requestTemplate.header(ABNAMRO_STANDARD_TRACE_ID, MDC.get(MDC_TRACE_ID));
-    };
-  }
-
-  @SSL
-  @Bean("zos")
-  @Scope(value = ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-  public CloseableHttpClient getPooledClientForZOS(BCDetailsZosConnectionConfiguration bcDetailsZosConnectionConfiguration) throws GeneralSecurityException, IOException {
-    SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(coasslContextProducer.sslConnectionSocketFactory(), new DefaultHostnameVerifier());
-    return HttpsClientProvider.getHttpsClient(sslSocketFactory, bcDetailsZosConnectionConfiguration, true);
-  }
+    /**
+     * This bean intercepts the request and adds the Trace-Id header to it before making a call to
+     * downstream systems.
+     *
+     * @return RequestInterceptor bean
+     */
+    @Bean
+    public RequestInterceptor requestInterceptorForTraceId() {
+        return requestTemplate -> {
+            requestTemplate.header(ABNAMRO_STANDARD_TRACE_ID, MDC.get(MDC_TRACE_ID));
+        };
+    }
 
     @SSL
-	@Bean("cyberark")
-	@Scope(value = ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-	public CloseableHttpClient getPooledClientForCyberArk(CyberArkConnectionConfiguration cyberArkConnectionConfiguration) throws GeneralSecurityException, IOException {
-    	SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(coasslContextProducer.sslConnectionSocketFactory(),new DefaultHostnameVerifier());
-		return HttpsClientProvider.getHttpsClient(sslSocketFactory, cyberArkConnectionConfiguration, true);
-	}
+    @Bean("zos")
+    @Scope(value = ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+    public CloseableHttpClient getPooledClientForZOS(BCDetailsZosConnectionConfiguration bcDetailsZosConnectionConfiguration) throws GeneralSecurityException, IOException {
+        SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(coasslContextProducer.sslConnectionSocketFactory(), new DefaultHostnameVerifier());
+        return HttpsClientProvider.getHttpsClient(sslSocketFactory, bcDetailsZosConnectionConfiguration, true);
+    }
 
-
-  /*@SSL
-  @Bean("zos")
-  @Scope(value = ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-  public CloseableHttpClient getPooledClientForZOS(BCDetailsZosConnectionConfiguration bcDetailsZosConnectionConfiguration
-                                                   KeyVaultSSLContextProducer keyVaultSSLContextProducer) throws GeneralSecurityException, IOException {
-    SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(
-            keyVaultSSLContextProducer.socketFactory(), new DefaultHostnameVerifier());
-    return HttpsClientProvider.getHttpsClient(sslSocketFactory, bcDetailsZosConnectionConfiguration, true);
-  }*/
-
-
-   /*@SSL
-	@Bean("cyberark")
-	@Scope(value = ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-	public CloseableHttpClient getPooledClientForCyberArk(
-			CyberArkConnectionConfiguration cyberArkConnectionConfiguration,
-			KeyVaultSSLContextProducer keyVaultSSLContextProducer) throws GeneralSecurityException, IOException {
-    	SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(
-    	        keyVaultSSLContextProducer.socketFactory(cyberArkConnectionConfiguration.getCertificateAlias()),
-    	        new DefaultHostnameVerifier());
-		return HttpsClientProvider.getHttpsClient(sslSocketFactory, cyberArkConnectionConfiguration, true);
-	}*/
+    @SSL
+    @Bean("cyberark")
+    @Scope(value = ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+    public CloseableHttpClient getPooledClientForCyberArk(CyberArkConnectionConfiguration cyberArkConnectionConfiguration) throws GeneralSecurityException, IOException {
+        SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(coasslContextProducer.sslConnectionSocketFactory(), new DefaultHostnameVerifier());
+        return HttpsClientProvider.getHttpsClient(sslSocketFactory, cyberArkConnectionConfiguration, true);
+    }
 }
-
 
 
 
@@ -94,21 +67,18 @@ public class EnableFeignConfiguration {
 
 ===========================================================================================================================================================================
 
-
-
-
 package com.abnamro.coao.clientadministrationapp.config;
 
 import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
 import javax.net.ssl.*;
 import java.io.File;
 import java.io.FileInputStream;
 import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
+
 @Configuration
 public class COASSLContextProducer {
 
@@ -118,16 +88,17 @@ public class COASSLContextProducer {
         try {
             KeyStore clientStore = KeyStore.getInstance("PKCS12");
             clientStore.load(new FileInputStream(new File("C://Users//B18438//IdeaProjects//coao-administration-app//src//main//resources//dev//coao01-d-plekv-coao01-d-rg-certificate-20240313.pfx")), "".toCharArray());
-            KeyManagerFactory kmf = KeyManagerFactory
-                    .getInstance(KeyManagerFactory.getDefaultAlgorithm());
+            
+            KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
             kmf.init(clientStore, "".toCharArray());
             KeyManager[] kms = kmf.getKeyManagers();
+            
             sslContext = SSLContext.getInstance("TLS");
             sslContext.init(kms, getTrustAll(), new SecureRandom());
             SSLContext.setDefault(sslContext);
             new SSLConnectionSocketFactory(sslContext);
         } catch (Exception e) {
-
+            // Handle exception properly
         }
         return sslContext;
     }
@@ -150,16 +121,15 @@ public class COASSLContextProducer {
                             X509Certificate[] certs, String authType) {
                         // Trust Client Certificate.
                     }
-                }};
+                }
+        };
     }
 }
 
 
 
+
 ================================================================================================================================
-
-
-
 
 package com.abnamro.coao.clientadministrationapp.client.zos;
 
@@ -171,7 +141,6 @@ import feign.RequestTemplate;
 import feign.httpclient.ApacheHttpClient;
 import jakarta.inject.Inject;
 import org.apache.http.client.HttpClient;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -180,61 +149,43 @@ import org.springframework.context.annotation.Configuration;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
-
-/**
- * FeignConfiguration class which injects HttpClient reference for making http connection.
- *
- */
 @Configuration
 public class BCDetailsZosFeignConfiguration {
 
-	//@Autowired
-	//private CyberArkFeignClient cyberArkFeignClient;
+    //@Autowired
+    //private CyberArkFeignClient cyberArkFeignClient;
 
+    @Inject
+    @Qualifier("zos")
+    private HttpClient httpsClient;
 
-	@Inject
-	@Qualifier("zos")
-	private HttpClient httpsClient;
+    @Bean
+    public Client zosClient() throws Exception {
+        return new ApacheHttpClient(httpsClient);
+    }
 
-
-
-	@Bean
-	public Client zosClient() throws Exception {
-		return new ApacheHttpClient(httpsClient);
-	}
-	
-	@ConditionalOnProperty(
-			prefix = "aab.zos",
-			value = {"basic-authentication.enabled"},
-			havingValue = "true")
-	@Bean
-	RequestInterceptor basicAuthRequestInterceptor() {
-		return new RequestInterceptor() {
-            @Override
-            public void apply(RequestTemplate template) {
-            	//ZosUserDetails zOSDetails = cyberArkFeignClient.getZosUserDetails();
-				ZosUserDetails zOSDetails = ZosUserDetails.builder().zosUserName("U#COOSZC").zosPassword("x5e910mx").build();
-        		String headerValue = "Basic " + base64Encode((((ZosUserDetails) zOSDetails).getZosUserName() + ":"
-        		+ zOSDetails.getZosPassword()).getBytes(StandardCharsets.ISO_8859_1));
-        		template.header("Authorization", headerValue);
-            }
+    @ConditionalOnProperty(
+            prefix = "aab.zos",
+            value = {"basic-authentication.enabled"},
+            havingValue = "true")
+    @Bean
+    RequestInterceptor basicAuthRequestInterceptor() {
+        return template -> {
+            //ZosUserDetails zOSDetails = cyberArkFeignClient.getZosUserDetails();
+            ZosUserDetails zOSDetails = ZosUserDetails.builder().zosUserName("U#COOSZC").zosPassword("x5e910mx").build();
+            String headerValue = "Basic " + base64Encode((zOSDetails.getZosUserName() + ":" + zOSDetails.getZosPassword()).getBytes(StandardCharsets.ISO_8859_1));
+            template.header("Authorization", headerValue);
         };
-	}
-	
-	private static String base64Encode(byte[] bytes) {
-		return Base64.getEncoder().encodeToString(bytes);
-	}
+    }
+
+    private static String base64Encode(byte[] bytes) {
+        return Base64.getEncoder().encodeToString(bytes);
+    }
 }
 
 
-
-
 =====================================================================================================================================================================
-
-
-
 package com.abnamro.coao.clientadministrationapp.client.zos;
-
 
 import com.abnamro.coao.clientadministrationapp.client.zos.interfaces.bcdb.custinfo.response.MG271AFetchCustResponse;
 import com.abnamro.coao.clientadministrationapp.client.zos.interfaces.bcdb.updatecustomer.request.MG786T01AUpdateRequest;
@@ -242,33 +193,38 @@ import com.abnamro.coao.clientadministrationapp.client.zos.interfaces.bcdb.updat
 import feign.Headers;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.stereotype.Component;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-
+import org.springframework.web.bind.annotation.GetMapping;
 
 /**
- * BCDetailsZosFeignClient: It facilitates communication with MG786T01A over ZOS API.
+ * BCDetailsZosFeignClient: Facilitates communication with MG786T01A over ZOS API.
  */
 @Component
 @FeignClient(value = "${aab.zos.name}", url = "${aab.zos.url}",
-    configuration = BCDetailsZosFeignConfiguration.class ,primary = false)
+    configuration = BCDetailsZosFeignConfiguration.class, primary = false)
 public interface BCDetailsZosFeignClient {
 
-  /**
-   * Update Client status from MG786 over ZOS api.
-   *
-   *
-   * @return BCDBCustomerUpdateResponse
-   */
-  @PostMapping(value = "/mg786t01a-update-minor-to-natural/",produces = "application/json", consumes = "application/json")
-  @Headers({"Accept: application/json"})
-  MG786T01AUpdateResponse updateMinorToNatural(String customerId);
+    /**
+     * Update Client status from MG786T01A over ZOS API.
+     *
+     * @param customerId Customer ID
+     * @return BCDBCustomerUpdateResponse
+     */
+    @PostMapping(value = "/mg786t01a-update-minor-to-natural/", produces = "application/json", consumes = "application/json")
+    @Headers("Accept: application/json")
+    MG786T01AUpdateResponse updateMinorToNatural(String customerId);
 
-  @PostMapping(value = "/mg271t01a-READ-BC/",produces = "application/json", consumes = "application/json")
-  @Headers({"Accept: application/json"})
-  MG271AFetchCustResponse getCustomer(String customerId);
+    /**
+     * Fetch customer information from MG271T01A over ZOS API.
+     *
+     * @param customerId Customer ID
+     * @return MG271AFetchCustResponse
+     */
+    @GetMapping(value = "/mg271t01a-READ-BC/", produces = "application/json", consumes = "application/json")
+    @Headers("Accept: application/json")
+    MG271AFetchCustResponse getCustomer(String customerId);
 }
+
 
 ================================================================================================================================================================
 
